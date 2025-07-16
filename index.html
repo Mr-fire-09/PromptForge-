@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PromptForge: AI Prompt Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); /* Gradient background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden; /* Hide scrollbar for welcome screen transition */
+            position: relative; /* Needed for pseudo-element positioning */
+        }
+        /* Animated Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #a8c0ff, #3f2b96, #a8c0ff, #3f2b96); /* Multiple colors for dynamic feel */
+            background-size: 400% 400%; /* Larger background to allow movement */
+            animation: gradientShift 15s ease infinite alternate; /* Slow, smooth shift */
+            z-index: -1; /* Behind content */
+            opacity: 0.3; /* Subtle blend */
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+
+        .welcome-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #001f3f 0%, #0074D9 100%); /* Deep blue gradient for welcome */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+            opacity: 1;
+            transition: opacity 0.8s ease-out;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            padding-bottom: 20px; /* Add some padding at the bottom */
+        }
+        .welcome-screen.fade-out {
+            opacity: 0;
+            pointer-events: none; /* Disable interactions once faded out */
+        }
+        .welcome-creator-credit {
+            position: absolute;
+            bottom: 20px; /* Position at the bottom */
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.7); /* Slightly transparent white for contrast */
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 600; /* font-semibold */
+            letter-spacing: 0.05em; /* tracking-wide */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2); /* Slightly stronger shadow for visibility */
+            white-space: nowrap; /* Prevent wrapping */
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly transparent white background */
+            border-radius: 20px; /* More rounded corners */
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); /* Stronger shadow */
+            padding: 30px;
+            width: 100%;
+            max-width: 700px;
+            animation: fadeIn 1s ease-out; /* Fade-in animation for the container */
+            display: none; /* Hidden by default, shown after welcome screen */
+        }
+        .container.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .typing-effect {
+            overflow: hidden; /* Ensures the text is not visible until typed */
+            white-space: pre-wrap; /* Preserves whitespace and wraps text */
+            animation: none; /* Reset animation for typing effect */
+        }
+        .typing-effect.active {
+            animation: typing 2s steps(40, end) forwards; /* Typing animation */
+        }
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        .fade-in-text {
+            opacity: 0;
+            animation: textFadeIn 0.8s ease-in-out forwards;
+        }
+        @keyframes textFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar for textareas */
+        textarea::-webkit-scrollbar {
+            width: 8px;
+        }
+        textarea::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        textarea::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loading-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 500px;
+            width: 90%;
+            position: relative;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+            transition: color 0.2s ease-in-out;
+        }
+        .modal-close-btn:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- Welcome Screen -->
+    <div id="welcomeScreen" class="welcome-screen">
+        <h2 class="text-5xl md:text-6xl font-extrabold mb-6 text-center">Welcome to PromptForge!</h2>
+        <p class="text-xl md:text-2xl mb-8 text-center px-4">Your intelligent AI prompt generator.</p>
+        <button id="enterAppBtn" class="bg-white text-blue-700 font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2">
+            Enter App
+        </button>
+        <p class="welcome-creator-credit">Created by Neera Verma</p>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="appContainer" class="container">
+        <div class="flex items-center justify-center mb-8">
+            <!-- Icon at the top -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-10 h-10 text-indigo-600 mr-4">
+                <path fill-rule="evenodd" d="M9.344 3.036A4.487 4.487 0 0 0 7.75 6.25a.75.75 0 0 1-1.5 0 5.987 5.987 0 0 1 1.794-4.217.75.75 0 0 1 1.006 1.103Zm6.312 0a.75.75 0 0 1 1.006-1.103 5.987 5.987 0 0 1 1.794 4.217.75.75 0 0 1-1.5 0 4.487 4.487 0 0 0-1.594-3.214ZM12 4.072a.75.75 0 0 1 .75-.75 3.75 3.75 0 0 0 0 7.5.75.75 0 0 1-.75-.75V4.072ZM12 18a.75.75 0 0 1 .75.75 3.75 3.75 0 0 0 0 7.5.75.75 0 0 1-.75-.75V18ZM18.943 6.094a.75.75 0 0 1 .437 1.093 5.987 5.987 0 0 0 1.794 4.217.75.75 0 0 1-1.006 1.103 4.487 4.487 0 0 0-1.594-3.214.75.75 0 0 1-.437-1.093ZM3.32 7.187a.75.75 0 0 1 .437-1.093 4.487 4.487 0 0 0-1.594 3.214.75.75 0 0 1-1.006-1.103 5.987 5.987 0 0 1 1.794-4.217ZM12 15a.75.75 0 0 1 .75-.75 3.75 3.75 0 0 0 0 7.5.75.75 0 0 1-.75-.75V15ZM18.943 17.906a.75.75 0 0 1 .437 1.093 4.487 4.487 0 0 0 1.594 3.214.75.75 0 0 1 1.006-1.103 5.987 5.987 0 0 1-1.794-4.217ZM3.32 16.813a.75.75 0 0 1 .437 1.093 5.987 5.987 0 0 1-1.794 4.217.75.75 0 0 1-1.006-1.103 4.487 4.487 0 0 0 1.594-3.214Z" clip-rule="evenodd" />
+                </svg>
+            <h1 class="text-4xl md:text-5xl font-extrabold text-center text-gray-800 leading-tight" style="text-shadow: 1px 1px 3px rgba(0,0,0,0.1);">
+                PromptForge: <span class="text-indigo-600">AI Prompt Generator</span>
+            </h1>
+        </div>
+
+        <!-- User Input Section -->
+        <div class="mb-6">
+            <label for="taskInput" class="block text-gray-700 text-lg font-semibold mb-2">Enter your task or topic:</label>
+            <textarea id="taskInput" rows="4" class="w-full p-4 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition duration-300 ease-in-out" placeholder="e.g., Create a business name, Summarize this text, Write a short story about a brave knight..."></textarea>
+        </div>
+
+        <!-- Tone/Role Selection -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label for="toneSelect" class="block text-gray-700 text-lg font-semibold mb-2">Select Tone/Role:</label>
+                <select id="toneSelect" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition duration-300 ease-in-out">
+                    <option value="default">Default</option>
+                    <option value="friendly">Friendly</option>
+                    <option value="formal">Formal</option>
+                    <option value="expert">Expert</option>
+                    <option value="creative">Creative</option>
+                </select>
+            </div>
+            <div>
+                <label for="promptExampleSelect" class="block text-gray-700 text-lg font-semibold mb-2">Or select a Prompt Example:</label>
+                <select id="promptExampleSelect" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white transition duration-300 ease-in-out">
+                    <option value="">-- Select an example --</option>
+                    <option value="Generate 5 unique business names for a coffee shop.">Business Names (Coffee Shop)</option>
+                    <option value="Summarize the plot of 'Moby Dick' in 100 words.">Summarize Text (Moby Dick)</option>
+                    <option value="Write a short story about a detective solving a mystery in a futuristic city.">Short Story (Futuristic Detective)</option>
+                    <option value="Explain quantum entanglement in simple terms.">Explain Concept (Quantum Entanglement)</option>
+                    <option value="Provide a recipe for a healthy vegan dinner.">Recipe (Vegan Dinner)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-8 flex flex-col md:flex-row justify-center items-center space-y-4 md:space-y-0 md:space-x-4">
+            <button id="generateBtn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                Generate Prompt & AI Response
+            </button>
+            <button id="randomPromptBtn" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                Random Prompt Idea
+            </button>
+        </div>
+
+        <!-- Generated Prompt Section -->
+        <div class="mb-6">
+            <label for="resultBox" class="block text-gray-700 text-lg font-semibold mb-2">Generated Prompt:</label>
+            <textarea id="resultBox" rows="6" class="w-full p-4 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 shadow-inner resize-none focus:outline-none cursor-text" readonly placeholder="Your generated prompt will appear here..."></textarea>
+        </div>
+
+        <!-- Copy Prompt Button -->
+        <div class="text-center mb-8">
+            <button id="copyPromptBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                Copy Prompt
+            </button>
+            <span id="copyPromptMessage" class="ml-4 text-green-700 font-semibold opacity-0 transition-opacity duration-300">Copied!</span>
+        </div>
+
+        <!-- AI Response Section -->
+        <div class="mb-6">
+            <label for="aiResponseBox" class="block text-gray-700 text-lg font-semibold mb-2">AI's Response:</label>
+            <textarea id="aiResponseBox" rows="8" class="w-full p-4 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 shadow-inner resize-none focus:outline-none cursor-text" readonly placeholder="The AI's response to your prompt will appear here..."></textarea>
+            <div id="loadingMessage" class="loading-message hidden">
+                <span class="loading-spinner"></span> Generating AI response...
+            </div>
+        </div>
+
+        <!-- Copy AI Response Button -->
+        <div class="text-center">
+            <button id="copyAIResponseBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                Copy AI Response
+            </button>
+            <span id="copyAIResponseMessage" class="ml-4 text-blue-700 font-semibold opacity-0 transition-opacity duration-300">Copied!</span>
+        </div>
+
+        <!-- About Creator & App Button -->
+        <div class="mt-10 text-center">
+            <button id="aboutBtn" class="inline-flex items-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-6 rounded-full shadow-md transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-gray-600 focus:ring-offset-2 text-sm">
+                <!-- SVG icon for a person/info -->
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 mr-2">
+                    <path fill-rule="evenodd" d="M7.5 6a4.5 4.5 0 1 1 9 0 4.5 4.5 0 0 1-9 0ZM3.751 20.105a8.25 8.25 0 0 1 16.498 0 .75.75 0 0 1-.437.695A18.683 18.683 0 0 1 12 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 0 1-.438-.695Z" clip-rule="evenodd" />
+                </svg>
+                About Creator & App
+            </button>
+        </div>
+
+        <!-- Creator Credit -->
+        <footer class="mt-4 text-center text-gray-500 text-xs font-semibold tracking-wide" style="text-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+            Created by Neera Verma
+        </footer>
+    </div>
+
+    <!-- About Modal Overlay -->
+    <div id="aboutModalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <button id="modalCloseBtn" class="modal-close-btn">&times;</button>
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">About PromptForge</h3>
+
+            <div class="mb-6">
+                <h4 class="text-xl font-semibold text-indigo-600 mb-2">The Creator: Neera Verma</h4>
+                <p class="text-gray-700 text-base leading-relaxed">
+                    PromptForge was meticulously crafted by <strong class="text-indigo-700">Neera Verma</strong>,
+                    a passionate developer dedicated to creating intuitive and powerful tools that simplify
+                    interactions with AI. This application is a testament to her commitment to enhancing user experience.
+                </p>
+            </div>
+
+            <div>
+                <h4 class="text-xl font-semibold text-indigo-600 mb-2">What Makes PromptForge Great?</h4>
+                <ul class="list-disc list-inside text-gray-700 text-base space-y-2">
+                    <li><strong class="font-medium">Intuitive Interface:</strong> Clean and easy-to-use design for seamless prompt generation.</li>
+                    <li><strong class="font-medium">Customizable Prompts:</strong> Tailor your prompts with different tones and roles (Friendly, Formal, Expert, Creative).</li>
+                    <li><strong class="font-medium">AI Integration:</strong> Directly get responses from advanced AI models based on your generated prompts.</li>
+                    <li><strong class="font-medium">Prompt Examples:</strong> Jumpstart your creativity with a selection of predefined prompt ideas.</li>
+                    <li><strong class="font-medium">Copy Functionality:</strong> Easily copy generated prompts and AI responses to your clipboard.</li>
+                    <li><strong class="font-medium">Mobile-Responsive:</strong> Enjoy a consistent experience across all devices.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const enterAppBtn = document.getElementById('enterAppBtn');
+        const appContainer = document.getElementById('appContainer');
+        const taskInput = document.getElementById('taskInput');
+        const toneSelect = document.getElementById('toneSelect');
+        const promptExampleSelect = document.getElementById('promptExampleSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const randomPromptBtn = document.getElementById('randomPromptBtn');
+        const resultBox = document.getElementById('resultBox');
+        const copyPromptBtn = document.getElementById('copyPromptBtn');
+        const copyPromptMessage = document.getElementById('copyPromptMessage');
+        const aiResponseBox = document.getElementById('aiResponseBox');
+        const copyAIResponseBtn = document.getElementById('copyAIResponseBtn');
+        const copyAIResponseMessage = document.getElementById('copyAIResponseMessage');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const aboutBtn = document.getElementById('aboutBtn');
+        const aboutModalOverlay = document.getElementById('aboutModalOverlay');
+        const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+        // API Key (provided by user)
+        const API_KEY = "AIzaSyCJd1cZx6kVz8SxszTulsuyoFvnWuw7xbc"; // Your provided API key
+
+        // Array of creative random prompt ideas
+        const randomPrompts = [
+            "Describe a world where gravity occasionally reverses.",
+            "Write a dialogue between a talking animal and a cynical human.",
+            "Invent a new magical artifact and its properties.",
+            "Create a short poem about a forgotten dream.",
+            "Design a futuristic city powered by unusual energy sources.",
+            "Imagine a day in the life of a cloud.",
+            "Write a monologue from the perspective of an ancient tree.",
+            "Describe the sound of silence in a bustling city.",
+            "Invent a new holiday and its traditions.",
+            "Tell a story about a tiny robot with a big heart."
+        ];
+
+        // Function to copy text to clipboard
+        function copyToClipboard(text, messageElement) {
+            if (text.trim() === '' || text.trim() === 'Your generated prompt will appear here...' || text.trim() === 'The AI\'s response to your prompt will appear here...' || text.trim() === 'Please enter a task or topic to generate a prompt.') {
+                return; // Do not copy if empty or placeholder
+            }
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = text;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            tempTextArea.setSelectionRange(0, 99999); // For mobile devices
+
+            try {
+                document.execCommand('copy');
+                messageElement.classList.remove('opacity-0');
+                messageElement.classList.add('opacity-100');
+                setTimeout(() => {
+                    messageElement.classList.remove('opacity-100');
+                    messageElement.classList.add('opacity-0');
+                }, 2000); // Message disappears after 2 seconds
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+            } finally {
+                document.body.removeChild(tempTextArea);
+            }
+        }
+
+        // Function to call Gemini API
+        async function callGeminiAPI(prompt) {
+            loadingMessage.classList.remove('hidden');
+            aiResponseBox.value = ''; // Clear previous AI response
+            generateBtn.disabled = true; // Disable button during API call
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+
+            const payload = { contents: chatHistory };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorData.error.message}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    aiResponseBox.value = text;
+                } else {
+                    aiResponseBox.value = "No valid response from AI. Please try again.";
+                    console.error("Unexpected AI response structure:", result);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                aiResponseBox.value = `Error generating AI response: ${error.message}. Please check your input or try again later.`;
+            } finally {
+                loadingMessage.classList.add('hidden');
+                generateBtn.disabled = false; // Re-enable button
+            }
+        }
+
+        // Event listener for Generate Prompt button
+        generateBtn.addEventListener('click', async () => {
+            const userTask = taskInput.value.trim();
+            const selectedTone = toneSelect.value;
+            let generatedPrompt = '';
+
+            if (userTask === '') {
+                resultBox.value = 'Please enter a task or topic to generate a prompt.';
+                aiResponseBox.value = ''; // Clear AI response if input is empty
+                resultBox.classList.remove('typing-effect', 'active', 'fade-in-text');
+                return;
+            }
+
+            // Base prompt
+            let baseInstruction = 'You are a helpful assistant.';
+            let specificInstruction = '';
+
+            // Adjust instruction based on selected tone/role
+            switch (selectedTone) {
+                case 'friendly':
+                    specificInstruction = 'Please provide a friendly and approachable response related to:';
+                    break;
+                case 'formal':
+                    specificInstruction = 'Kindly provide a formal and comprehensive response concerning:';
+                    break;
+                case 'expert':
+                    specificInstruction = 'As an expert in the field, please elaborate on:';
+                    break;
+                case 'creative':
+                    const creativeOpenings = [
+                        "Embark on a journey of imagination. As a visionary storyteller, please craft a narrative exploring:",
+                        "Let your creativity flow! Imagine and describe a scenario where:",
+                        "Dive into the realm of the extraordinary. Your task is to invent and detail:",
+                        "Unleash a cascade of innovative ideas. Envision a world where:",
+                        "Paint a vivid picture with words. Describe in rich detail:"
+                    ];
+                    const randomCreativeOpening = creativeOpenings[Math.floor(Math.random() * creativeOpenings.length)];
+                    specificInstruction = randomCreativeOpening; // Use the creative opening as the specific instruction
+                    break;
+                default: // 'default'
+                    specificInstruction = 'Please provide information related to:';
+                    break;
+            }
+
+            generatedPrompt = `${baseInstruction} ${specificInstruction} ${userTask}`;
+
+            // Apply typing effect to generated prompt
+            resultBox.value = ''; // Clear previous text
+            resultBox.classList.remove('typing-effect', 'active', 'fade-in-text'); // Reset classes
+            void resultBox.offsetWidth; // Trigger reflow to restart animation
+            resultBox.classList.add('typing-effect');
+
+            let i = 0;
+            const speed = 20; // Typing speed in milliseconds
+
+            function typeWriter() {
+                if (i < generatedPrompt.length) {
+                    resultBox.value += generatedPrompt.charAt(i);
+                    i++;
+                    setTimeout(typeWriter, speed);
+                } else {
+                    // After typing, apply fade-in for the final text
+                    resultBox.classList.remove('typing-effect');
+                    resultBox.classList.add('fade-in-text');
+                }
+            }
+            typeWriter();
+
+            // Call Gemini API with the generated prompt
+            await callGeminiAPI(generatedPrompt);
+        });
+
+        // Event listener for Random Prompt Idea button
+        randomPromptBtn.addEventListener('click', () => {
+            const randomIndex = Math.floor(Math.random() * randomPrompts.length);
+            taskInput.value = randomPrompts[randomIndex];
+            // Optionally, trigger prompt generation automatically after selecting a random prompt
+            // generateBtn.click();
+        });
+
+        // Event listener for Copy Prompt button
+        copyPromptBtn.addEventListener('click', () => {
+            copyToClipboard(resultBox.value, copyPromptMessage);
+        });
+
+        // Event listener for Copy AI Response button
+        copyAIResponseBtn.addEventListener('click', () => {
+            copyToClipboard(aiResponseBox.value, copyAIResponseMessage);
+        });
+
+        // Event listener for Prompt Example selection
+        promptExampleSelect.addEventListener('change', () => {
+            const selectedExample = promptExampleSelect.value;
+            if (selectedExample) {
+                taskInput.value = selectedExample;
+            }
+        });
+
+        // Welcome screen logic
+        enterAppBtn.addEventListener('click', () => {
+            welcomeScreen.classList.add('fade-out');
+            setTimeout(() => {
+                welcomeScreen.style.display = 'none';
+                appContainer.classList.add('active'); // Show main app container
+            }, 800); // Match fade-out transition duration
+        });
+
+        // About Modal Logic
+        aboutBtn.addEventListener('click', () => {
+            aboutModalOverlay.classList.add('show');
+        });
+
+        modalCloseBtn.addEventListener('click', () => {
+            aboutModalOverlay.classList.remove('show');
+        });
+
+        // Close modal if clicked outside content
+        aboutModalOverlay.addEventListener('click', (e) => {
+            if (e.target === aboutModalOverlay) {
+                aboutModalOverlay.classList.remove('show');
+            }
+        });
+
+        // Initial state for result boxes placeholder
+        window.onload = () => {
+            resultBox.value = 'Your generated prompt will appear here...';
+            aiResponseBox.value = 'The AI\'s response to your prompt will appear here...';
+        };
+    </script>
+</body>
+</html>
