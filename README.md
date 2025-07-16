@@ -60,3 +60,43 @@ PromptForge delivers the perfect Gemini-style prompt for you.
 ├── index.html      # Main HTML file
 ├── style.css       # Styling with animations
 └── script.js       # Logic for prompt generation
+
+
+
+🎁 Example Generated Prompt
+"You are a helpful assistant. Please create a blog title based on the following topic: AI in Healthcare"
+
+🎨 Animation Styles Used
+✍️ Typing Effect using JS
+
+🌫️ Fade In on output box
+
+🧊 Gradient background with glassmorphism card UI
+
+🤝 Contribute
+Want to improve the logic or animations?
+DM me or open a pull request. Contributions are welcome! 💬
+
+🧑‍💻 Creator
+Neeraj Verma
+📧 vermaniraj0904@gmail.com
+🔗 LinkedIn Profile
+
+📌 License
+MIT License © 2025 Neeraj Verma
+
+💬 “Prompts that spark brilliance — one line at a time.”
+
+yaml
+Copy
+Edit
+
+---
+
+### ✅ To Use:
+
+- Replace the placeholder links like `https://your-deployed-link.com` and `https://your-screenshot-link.com` with your actual deployment/screenshot URLs.
+- You can host the GIF via [Giphy](https://giphy.com) or upload it to GitHub and link with `/assets/filename.gif`.
+
+Would you like me to generate the full code (`HTML + CSS + JS`) now to match this README?
+
